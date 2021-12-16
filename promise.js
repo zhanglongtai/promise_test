@@ -1,8 +1,4 @@
-const {
-    log,
-    isFunction,
-} = require('./utils')
-
+const { log, isFunction } = require('./utils')
 
 const State = {
     Pending: 'Pending',
@@ -13,52 +9,62 @@ const State = {
 class PromiseForTest {
     constructor(executor) {
         this.state = State.Pending
-        this.fulfillmentValue = null
-        this.rejectionReason = null
-        this.onFulfilledFunctions = []
-        this.onRejectedFunctions = []
+        this.value = null
+        this.reason = null
+        this.callbacksAfterFulfilled = []
+        this.callbacksAfterRejected = []
 
-        executor(this.runAfterResolve.bind(this), this.runAfterReject.bind(this))
+        executor(this.runAfterFulfilled.bind(this), this.runAfterRejected.bind(this))
     }
 
-    runNextLoop(callback, value) {
+    runNextLoop() {
         setTimeout(() => {
-            callback(value)
+            let callbacks = []
+            let param = null
+            if (this.state === State.Fulfilled) {
+                callbacks = this.callbacksAfterFulfilled
+                param = this.value
+            } else if (this.state === State.Rejected) {
+                callbacks = this.callbacksAfterRejected
+                param = this.reason
+            }
+
+            while (callbacks.length > 0) {
+                let callback = callbacks.shift()
+                callback(param)
+            }
         })
     }
 
-    runAfterResolve(fulfillmentValue) {
-        log('run')
-        this.state = State.Fulfilled
-        this.fulfillmentValue = fulfillmentValue
+    runAfterFulfilled(fulfillmentValue) {
+        if (this.state === State.Pending) {
+            this.state = State.Fulfilled
+            this.value = fulfillmentValue
 
-        for (let callback of this.onFulfilledFunctions) {
-            this.runNextLoop(callback, fulfillmentValue)
+            this.runNextLoop()
         }
     }
 
-    runAfterReject(rejectionReason) {
-        this.state = State.Rejected
-        this.rejectionReason = rejectionReason
+    runAfterRejected(rejectionReason) {
+        if (this.state === State.Pending) {
+            this.state = State.Rejected
+            this.reason = rejectionReason
 
-        for (let callback of this.onFulfilledFunctions) {
-            this.runNextLoop(callback, rejectionReason)
+            this.runNextLoop()
         }
     }
 
     then(onFulfilled, onRejected) {
-        this.onFulfilledFunctions.push(onFulfilled)
-        this.onRejectedFunctions.push(onRejected)
-        // log('run then')
-        // if (this.state === State.Fulfilled) {
-        //     onFulfilled(this.fulfillmentValue)
-        // } else if (this.state === State.Rejected) {
-        //     onRejected(this.rejectionReason)
-        // } else {
-        //     this.onFulfilled = onFulfilled
-        //     this.onRejected = onRejected
-        // }
-        // log('run then1', this.state)
+        if (isFunction(onFulfilled)) {
+            this.callbacksAfterFulfilled.push(onFulfilled)
+        }
+
+        if (isFunction(onRejected)) {
+            this.callbacksAfterRejected.push(onRejected)
+        }
+
+        let p = new PromiseForTest(() => {})
+        return p
     }
 }
 
