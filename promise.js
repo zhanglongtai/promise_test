@@ -1,4 +1,7 @@
-const { log, isFunction } = require('./utils')
+const {
+    log,
+    isFunction,
+} = require('./utils')
 
 const State = {
     Pending: 'Pending',
@@ -17,6 +20,11 @@ class PromiseForTest {
         executor(this.runAfterFulfilled.bind(this), this.runAfterRejected.bind(this))
     }
 
+    static isPromise(variable) {
+        let is = variable instanceof PromiseForTest
+        return is
+    }
+
     runNextLoop() {
         setTimeout(() => {
             let callbacks = []
@@ -31,7 +39,15 @@ class PromiseForTest {
 
             while (callbacks.length > 0) {
                 let callback = callbacks.shift()
-                callback(param)
+                let r = callback.handler(param)
+
+                if (!PromiseForTest.isPromise(r)) {
+                    callback.nextPromise.runAfterFulfilled(r)
+                } else {
+                    r.then((value) => {
+                        callback.nextPromise.runAfterFulfilled(value)
+                    }, () => {})
+                }
             }
         })
     }
@@ -55,15 +71,25 @@ class PromiseForTest {
     }
 
     then(onFulfilled, onRejected) {
+        let p = new PromiseForTest(() => {})
+
         if (isFunction(onFulfilled)) {
-            this.callbacksAfterFulfilled.push(onFulfilled)
+            let o = {
+                handler: onFulfilled,
+                nextPromise: p,
+            }
+
+            this.callbacksAfterFulfilled.push(o)
         }
 
         if (isFunction(onRejected)) {
-            this.callbacksAfterRejected.push(onRejected)
+            let o = {
+                handler: onRejected,
+                nextPromise: p,
+            }
+            this.callbacksAfterRejected.push(o)
         }
 
-        let p = new PromiseForTest(() => {})
         return p
     }
 }

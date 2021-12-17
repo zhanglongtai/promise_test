@@ -1,5 +1,6 @@
 const fs = require('fs')
 const { spawnSync } = require('child_process')
+const chokidar = require('chokidar')
 const { log } = require('./utils')
 
 class Throttle {
@@ -18,10 +19,10 @@ class Throttle {
 }
 
 const executeTest = function(filePath) {
-    log('========== test start ==========')
+    log('\n\n\n\n\n========== test start ==========')
     let { stdout, stderr } = spawnSync('node', ['test.js'])
     log(stdout.toString(), stderr.toString())
-    log('========== test end ==========')
+    log('========== test end ==========\n\n\n\n\n')
 }
 
 const main = function() {
@@ -31,12 +32,17 @@ const main = function() {
     let throttle = new Throttle(executeTest)
 
     log(`start auto test - ${targetFilePath}\n`)
-    fs.watch(targetFilePath, {}, (eventType, filename) => {
-        log('watch', eventType, filename)
-        if (eventType === 'change') {
-            throttle.run()
-        }
-    })
+    // fs.watch(targetFilePath, {}, (eventType, filename) => {
+    //     log('watch', eventType, filename)
+    //     if (eventType === 'change') {
+    //         throttle.run()
+    //     }
+    // })
+
+    let watcher = chokidar.watch(targetFilePath)
+    watcher.on('change', (path, stats) => {
+        throttle.run()
+    });
 }
 
 main()
